@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"strconv"
 	"strings"
 )
 
@@ -20,7 +21,7 @@ type DNSRecord struct {
 	Class        uint16
 	TTL          uint32
 	RDLength     uint16
-	RData        []byte
+	RData        string
 }
 
 func ParseDNSHeader(buf *bytes.Buffer) DNSHeader {
@@ -68,7 +69,15 @@ func ParseDNSRecord(buf *bytes.Buffer) DNSRecord {
 	binary.Read(buf, binary.BigEndian, &record.Class)
 	binary.Read(buf, binary.BigEndian, &record.TTL)
 	binary.Read(buf, binary.BigEndian, &record.RDLength)
-	binary.Read(buf, binary.BigEndian, &record.RData)
+
+	var RData [4]byte
+	binary.Read(buf, binary.BigEndian, &RData)
+
+	var octets [4]string
+	for i, num := range RData {
+		octets[i] = strconv.Itoa(int(num))
+	}
+	record.RData = strings.Join(octets[:], ".")
 
 	return record
 }
@@ -89,10 +98,10 @@ func ParseDNSResponse(buf []byte) DNSResponse {
 	header := ParseDNSHeader(bytesBuf)
 	response := DNSResponse{
 		Header: header,
-		Questions: make([]DNSQuestion, header.QDcount),
-		Answers: make([]DNSRecord, header.ANcount),
-		NameServers: make([]DNSRecord, header.NScount),
-		AdditionalRecords: make([]DNSRecord, header.ARcount),
+		Questions: make([]DNSQuestion, 0, header.QDcount),
+		Answers: make([]DNSRecord, 0, header.ANcount),
+		NameServers: make([]DNSRecord, 0, header.NScount),
+		AdditionalRecords: make([]DNSRecord, 0, header.ARcount),
 	}
 
 	for range header.QDcount {

@@ -23,58 +23,70 @@ type DNSRecord struct {
 	RData        []byte
 }
 
-func ParseDNSHeader(buf []byte) DNSHeader {
-	iobuf := bytes.NewBuffer(buf)
+func ParseDNSHeader(buf *bytes.Buffer) DNSHeader {
 	header := DNSHeader{}
-	binary.Read(iobuf, binary.BigEndian, &header)
+	binary.Read(buf, binary.BigEndian, &header)
 	return header
 }
 
-func ParseDomainName(buf []byte) (string, uint8) {
+func ParseDomainName(buf *bytes.Buffer) string {
 	var labels []string
-	var index uint8 = 0
+	var compressionMask uint8 = 0b1100_0000
 
-	for index < uint8(len(buf)) {
-		num := buf[index]
+	for {
+		var num uint8
+		binary.Read(buf, binary.BigEndian, &num)
+		// check if DNS domain name compression is used
+		if (num & compressionMask) != 0 {
+			// compression is used, revert the read byte
+			// and treat the next 2 bytes as 0b11(compression mask)offset
+			// and start reading from offset
+			buf.UnreadByte()
+			var index uint16
+			binary.Read(buf, binary.BigEndian, &index)
+			index &= 0b00
+
+			buf = bytes.NewBuffer(buf.Bytes()[index:])
+			num, _ = buf.ReadByte()
+		} 
+
 		if num == 0 {
 			break
 		}
-		label := string(buf[index + 1:index + 1 + num])
-		labels = append(labels, label)
-		index += num + 1
+		labelBytes := buf.Next(int(num))
+		labels = append(labels, string(labelBytes))
 	}
-	return strings.Join(labels, "."), index
+		
+	return strings.Join(labels, ".")
 }
 
-func ParseDNSRecord(buf []byte) (DNSRecord, uint8) {
-	domain, newStartIdx := ParseDomainName(buf)
+func ParseDNSRecord(buf *bytes.Buffer) DNSRecord {
 	record := DNSRecord{
-		DomainName: domain,
-		Type_: binary.BigEndian.Uint16(buf[newStartIdx:]),
-		Class: binary.BigEndian.Uint16(buf[newStartIdx + 2:]),
-		TTL: binary.BigEndian.Uint32(buf[newStartIdx + 6:]),
-		RDLength: binary.BigEndian.Uint16(buf[newStartIdx + 8:]),
-		RData: buf[newStartIdx + 10:],
+		DomainName: ParseDomainName(buf),
 	}
-	var nextRecStartIdx uint8 = newStartIdx + 10 + uint8(record.RDLength)
-	record.RData = buf[newStartIdx + 10: nextRecStartIdx]
-	return record, nextRecStartIdx
+	binary.Read(buf, binary.BigEndian, &record.Type_)
+	binary.Read(buf, binary.BigEndian, &record.Class)
+	binary.Read(buf, binary.BigEndian, &record.TTL)
+	binary.Read(buf, binary.BigEndian, &record.RDLength)
+	binary.Read(buf, binary.BigEndian, &record.RData)
+
+	return record
 }
 
-func ParseDNSQuestion(buf []byte) (DNSQuestion, uint8){
-	domain, byteIdxAfterDomain := ParseDomainName(buf)
-	recType := RecordType(binary.BigEndian.Uint16(buf[byteIdxAfterDomain:]))
-	classType := QueryClass(binary.BigEndian.Uint16(buf[byteIdxAfterDomain + 2:]))
+func ParseDNSQuestion(buf *bytes.Buffer) DNSQuestion {
 	question := DNSQuestion{
-		Qname: domain,
-		Qtype: recType,
-		Qclass: classType,
+		Qname: ParseDomainName(buf),
 	}
-	return question, byteIdxAfterDomain + 4
+	binary.Read(buf, binary.BigEndian, &question.Qtype)
+	binary.Read(buf, binary.BigEndian, &question.Qclass)
+
+	return question
 }
 
 func ParseDNSResponse(buf []byte) DNSResponse {
-	header := ParseDNSHeader(buf)
+	bytesBuf := bytes.NewBuffer(buf)
+
+	header := ParseDNSHeader(bytesBuf)
 	response := DNSResponse{
 		Header: header,
 		Questions: make([]DNSQuestion, header.QDcount),
@@ -82,30 +94,21 @@ func ParseDNSResponse(buf []byte) DNSResponse {
 		NameServers: make([]DNSRecord, header.NScount),
 		AdditionalRecords: make([]DNSRecord, header.ARcount),
 	}
-	buf = buf[DNSHeaderSize:]
 
 	for range header.QDcount {
-		question, newStartIdx := ParseDNSQuestion(buf)
-		response.Questions = append(response.Questions, question)
-		buf = buf[newStartIdx:]
+		response.Questions = append(response.Questions, ParseDNSQuestion(bytesBuf))
 	}
 
 	for range header.ANcount {
-		record, newStartIdx := ParseDNSRecord(buf)
-		response.Answers = append(response.Answers, record)
-		buf = buf[newStartIdx:]
+		response.Answers = append(response.Answers, ParseDNSRecord(bytesBuf))
 	}
 
 	for range header.NScount {
-		record, newStartIdx := ParseDNSRecord(buf)
-		response.NameServers = append(response.AdditionalRecords, record)
-		buf = buf[newStartIdx:]
+		response.NameServers = append(response.AdditionalRecords, ParseDNSRecord(bytesBuf))
 	}
 
 	for range header.ARcount {
-		record, newStartIdx := ParseDNSRecord(buf)
-		response.AdditionalRecords = append(response.AdditionalRecords, record)
-		buf = buf[newStartIdx:]
+		response.AdditionalRecords = append(response.AdditionalRecords, ParseDNSRecord(bytesBuf))
 	}
 
 	return response

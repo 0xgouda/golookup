@@ -12,6 +12,7 @@ func TestDNSQuerier(t *testing.T) {
 
 	query := GenerateDNSQuery("google.com")
 
+	// For simplicity lets hope it will make it to the server and back :)
 	socket, err := net.Dial("udp", "8.8.8.8:53")
 	a.NoError(err)
 	defer socket.Close()

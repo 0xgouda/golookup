@@ -9,7 +9,7 @@ import (
 type RecordType uint16
 
 const (
-	A RecordType = 1
+	A_TYPE RecordType = 1
 )
 
 type QueryClass uint16
@@ -17,6 +17,8 @@ type QueryClass uint16
 const (
 	Internet QueryClass = 1
 )
+
+const DNSHeaderSize = 12
 
 type DNSHeader struct {
 	Id      uint16
@@ -69,7 +71,7 @@ func GenerateDNSQuery(domain string) []byte {
 
 	question := DNSQuestion{
 		Qname: domain,
-		Qtype: A,
+		Qtype: A_TYPE,
 		Qclass: Internet,
 	}
 

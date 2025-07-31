@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
 	"strconv"
 	"strings"
 )
@@ -24,15 +25,16 @@ type DNSRecord struct {
 	RData        string
 }
 
-func ParseDNSHeader(buf *bytes.Buffer) DNSHeader {
+func ParseDNSHeader(buf *bytes.Reader) DNSHeader {
 	header := DNSHeader{}
 	binary.Read(buf, binary.BigEndian, &header)
 	return header
 }
 
-func ParseDomainName(buf *bytes.Buffer) string {
+func ParseDomainName(buf *bytes.Reader) string {
 	var labels []string
 	var compressionMask uint8 = 0b1100_0000
+	var currPos int64 = -1
 
 	for {
 		var num uint8
@@ -45,23 +47,28 @@ func ParseDomainName(buf *bytes.Buffer) string {
 			buf.UnreadByte()
 			var index uint16
 			binary.Read(buf, binary.BigEndian, &index)
-			index &= 0b00
+			index &= 0b0011_1111_1111_1111
 
-			buf = bytes.NewBuffer(buf.Bytes()[index:])
-			num, _ = buf.ReadByte()
+			currPos, _ = buf.Seek(0, io.SeekCurrent)
+			buf.Seek(int64(index), io.SeekStart)
+			continue
 		} 
 
 		if num == 0 {
 			break
 		}
-		labelBytes := buf.Next(int(num))
+		labelBytes := make([]byte, num)
+		buf.Read(labelBytes)
 		labels = append(labels, string(labelBytes))
 	}
 		
+	if currPos != -1 {
+		buf.Seek(currPos, io.SeekStart)
+	}
 	return strings.Join(labels, ".")
 }
 
-func ParseDNSRecord(buf *bytes.Buffer) DNSRecord {
+func ParseDNSRecord(buf *bytes.Reader) DNSRecord {
 	record := DNSRecord{
 		DomainName: ParseDomainName(buf),
 	}
@@ -82,7 +89,7 @@ func ParseDNSRecord(buf *bytes.Buffer) DNSRecord {
 	return record
 }
 
-func ParseDNSQuestion(buf *bytes.Buffer) DNSQuestion {
+func ParseDNSQuestion(buf *bytes.Reader) DNSQuestion {
 	question := DNSQuestion{
 		Qname: ParseDomainName(buf),
 	}
@@ -93,7 +100,7 @@ func ParseDNSQuestion(buf *bytes.Buffer) DNSQuestion {
 }
 
 func ParseDNSResponse(buf []byte) DNSResponse {
-	bytesBuf := bytes.NewBuffer(buf)
+	bytesBuf := bytes.NewReader(buf)
 
 	header := ParseDNSHeader(bytesBuf)
 	response := DNSResponse{

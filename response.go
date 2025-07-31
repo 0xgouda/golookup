@@ -49,7 +49,9 @@ func ParseDomainName(buf *bytes.Reader) string {
 			binary.Read(buf, binary.BigEndian, &index)
 			index &= 0b0011_1111_1111_1111
 
-			currPos, _ = buf.Seek(0, io.SeekCurrent)
+			if currPos == -1 {
+				currPos, _ = buf.Seek(0, io.SeekCurrent)
+			}
 			buf.Seek(int64(index), io.SeekStart)
 			continue
 		} 
@@ -89,6 +91,8 @@ func ParseDNSRecord(buf *bytes.Reader) DNSRecord {
 			octets[i] = strconv.Itoa(int(num))
 		}
 		record.RData = strings.Join(octets[:], ".")
+	default:
+		buf.Read(make([]byte, record.RDLength))
 	}
 
 	return record

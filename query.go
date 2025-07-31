@@ -9,7 +9,8 @@ import (
 type RecordType uint16
 
 const (
-	A_TYPE RecordType = 1
+	A_TYPE  RecordType = 1
+	NS_TYPE RecordType = 2
 )
 
 type QueryClass uint16

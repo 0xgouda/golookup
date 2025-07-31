@@ -18,8 +18,8 @@ type DNSResponse struct {
 
 type DNSRecord struct {
 	DomainName   string
-	Type_        uint16
-	Class        uint16
+	Type_        RecordType
+	Class        QueryClass
 	TTL          uint32
 	RDLength     uint16
 	RData        string
@@ -77,14 +77,19 @@ func ParseDNSRecord(buf *bytes.Reader) DNSRecord {
 	binary.Read(buf, binary.BigEndian, &record.TTL)
 	binary.Read(buf, binary.BigEndian, &record.RDLength)
 
-	var RData [4]byte
-	binary.Read(buf, binary.BigEndian, &RData)
+	switch record.Type_ {
+	case NS_TYPE:
+		record.RData = ParseDomainName(buf)
+	case A_TYPE:
+		var RData [4]byte
+		binary.Read(buf, binary.BigEndian, &RData)
 
-	var octets [4]string
-	for i, num := range RData {
-		octets[i] = strconv.Itoa(int(num))
+		var octets [4]string
+		for i, num := range RData {
+			octets[i] = strconv.Itoa(int(num))
+		}
+		record.RData = strings.Join(octets[:], ".")
 	}
-	record.RData = strings.Join(octets[:], ".")
 
 	return record
 }
@@ -120,7 +125,7 @@ func ParseDNSResponse(buf []byte) DNSResponse {
 	}
 
 	for range header.NScount {
-		response.NameServers = append(response.AdditionalRecords, ParseDNSRecord(bytesBuf))
+		response.NameServers = append(response.NameServers, ParseDNSRecord(bytesBuf))
 	}
 
 	for range header.ARcount {

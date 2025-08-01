@@ -108,11 +108,11 @@ func ParseDNSQuestion(buf *bytes.Reader) DNSQuestion {
 	return question
 }
 
-func ParseDNSResponse(buf []byte) DNSResponse {
+func ParseDNSResponse(buf []byte) *DNSResponse {
 	bytesBuf := bytes.NewReader(buf)
 
 	header := ParseDNSHeader(bytesBuf)
-	response := DNSResponse{
+	response := &DNSResponse{
 		Header: header,
 		Questions: make([]DNSQuestion, 0, header.QDcount),
 		Answers: make([]DNSRecord, 0, header.ANcount),

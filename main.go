@@ -1,30 +1,45 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
+	"time"
 )
 
 // Fixed Root DNS Servers addresses
+// From: https://www.iana.org/domains/root/servers
 const (
 	A_ROOT_SERVER = "198.41.0.4"
 )
 
-func SendQuery(queryPacket []byte, serverAddr string) DNSResponse {
+func SendDNSQuery(queryPacket []byte, serverAddr string) (*DNSResponse, error) {
 	fmt.Println("Querying:", serverAddr)
 
-	// For simplicity lets hope it will make it to the server and back :)
 	socket, _ := net.Dial("udp", serverAddr + ":53")
 	defer socket.Close()
-	socket.Write(queryPacket)
 
 	buf := make([]byte, 1024)
-	socket.Read(buf)
-	resp := ParseDNSResponse(buf)
+	var err error
+	for range 5 {
+		socket.SetDeadline(time.Now().Add(5 * time.Second))
+		_, err = socket.Write(queryPacket)
+		if err == nil {
+			_, err = socket.Read(buf)
+			if err == nil {
+				break
+			}
+		}
+	}
 
+	if errors.Is(err, os.ErrDeadlineExceeded) {
+		return nil, fmt.Errorf("error connecting to address %s, UDP packets didn't make it", serverAddr)
+	}
+
+	resp := ParseDNSResponse(buf)
 	if resp.Header.ANcount > 0 {
-		return resp
+		return resp, nil
 	} 
 
 	if serverAddr == A_ROOT_SERVER {
@@ -43,7 +58,11 @@ func SendQuery(queryPacket []byte, serverAddr string) DNSResponse {
 		fmt.Println("IP not in packet, starting new query for:", resp.NameServers[0].RData)
 
 		nsQuery := GenerateDNSQuery(resp.NameServers[0].RData)
-		nsAns = SendQuery(nsQuery, A_ROOT_SERVER).Answers
+		nsResp, err := SendDNSQuery(nsQuery, A_ROOT_SERVER)
+		if err != nil {
+			return nil, err
+		}
+		nsAns = nsResp.Answers
 	}
 	
 	for _, ans := range nsAns {
@@ -58,7 +77,7 @@ func SendQuery(queryPacket []byte, serverAddr string) DNSResponse {
 	}
 	fmt.Println()
 
-	return SendQuery(queryPacket, nsIp)
+	return SendDNSQuery(queryPacket, nsIp)
 }
 
 func main() {
@@ -66,7 +85,11 @@ func main() {
 	fmt.Println()
 
 	queryPakcet := GenerateDNSQuery(os.Args[1])
-	resp := SendQuery(queryPakcet, A_ROOT_SERVER)
+	resp, err := SendDNSQuery(queryPakcet, A_ROOT_SERVER)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	fmt.Println("Received:")
 
 	for _, ans := range resp.Answers {

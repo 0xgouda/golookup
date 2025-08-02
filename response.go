@@ -80,7 +80,12 @@ func ParseDNSRecord(buf *bytes.Reader) DNSRecord {
 	binary.Read(buf, binary.BigEndian, &record.RDLength)
 
 	switch record.Type_ {
-	case NS_TYPE:
+	case NS_TYPE, CNAME_TYPE:
+		record.RData = ParseDomainName(buf)
+	case MX_TYPE:
+		// ignore preference 
+		buf.ReadByte() 
+		buf.ReadByte()
 		record.RData = ParseDomainName(buf)
 	case A_TYPE:
 		var RData [4]byte

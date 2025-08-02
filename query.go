@@ -9,8 +9,11 @@ import (
 type RecordType uint16
 
 const (
-	A_TYPE  RecordType = 1
-	NS_TYPE RecordType = 2
+	A_TYPE     RecordType = 1
+	NS_TYPE    RecordType = 2
+	CNAME_TYPE RecordType = 5
+	MX_TYPE    RecordType = 15
+	TXT_TYPE   RecordType = 16
 )
 
 type QueryClass uint16
@@ -18,8 +21,6 @@ type QueryClass uint16
 const (
 	Internet QueryClass = 1
 )
-
-const DNSHeaderSize = 12
 
 type DNSHeader struct {
 	Id      uint16
@@ -44,17 +45,16 @@ type DNSQuestion struct {
 
 func (q *DNSQuestion) to_bytes() []byte {
 	buf := new(bytes.Buffer)
-	var before string
+	var label string
 
 	domain := q.Qname
 	for domain != "" {
-		before, domain, _ = strings.Cut(domain, ".")
+		label, domain, _ = strings.Cut(domain, ".")
 
-		buf.WriteByte(byte(len(before)))
-		buf.WriteString(before)
+		buf.WriteByte(byte(len(label)))
+		buf.WriteString(label)
 	}
-
-	buf.WriteByte(byte(0))
+	buf.WriteByte(0)
 
 	binary.Write(buf, binary.BigEndian, q.Qtype)
 	binary.Write(buf, binary.BigEndian, q.Qclass)
@@ -63,7 +63,7 @@ func (q *DNSQuestion) to_bytes() []byte {
 }
 
 var incrementalId uint16 = 0
-func GenerateDNSQuery(domain string) []byte {
+func GenerateDNSQuery(domain string, qtype RecordType) []byte {
 	header := DNSHeader{
 		Id: incrementalId,
 		QDcount: 1,
@@ -72,7 +72,7 @@ func GenerateDNSQuery(domain string) []byte {
 
 	question := DNSQuestion{
 		Qname: domain,
-		Qtype: A_TYPE,
+		Qtype: qtype,
 		Qclass: Internet,
 	}
 

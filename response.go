@@ -70,6 +70,21 @@ func ParseDomainName(buf *bytes.Reader) string {
 	return strings.Join(labels, ".")
 }
 
+func ParseTXTRdata(buf *bytes.Reader, RDLength uint16) string {
+	var strs []string
+	var readLen uint16
+
+	for readLen < RDLength {
+		var num uint8
+		binary.Read(buf, binary.BigEndian, &num)
+		readLen += uint16(num) + 1
+		strBytes := make([]byte, num)
+		buf.Read(strBytes)
+		strs = append(strs, string(strBytes))
+	}
+	return strings.Join(strs, "")
+}
+
 func ParseDNSRecord(buf *bytes.Reader) DNSRecord {
 	record := DNSRecord{
 		DomainName: ParseDomainName(buf),
@@ -96,6 +111,8 @@ func ParseDNSRecord(buf *bytes.Reader) DNSRecord {
 			octets[i] = strconv.Itoa(int(num))
 		}
 		record.RData = strings.Join(octets[:], ".")
+	case TXT_TYPE:
+		record.RData = ParseTXTRdata(buf, record.RDLength)
 	default:
 		buf.Read(make([]byte, record.RDLength))
 	}

@@ -39,26 +39,27 @@ func ParseDomainName(buf *bytes.Reader) string {
 	for {
 		var num uint8
 		binary.Read(buf, binary.BigEndian, &num)
+		if num == 0 {
+			break
+		}
+
 		// check if DNS domain name compression is used
 		if (num & compressionMask) != 0 {
-			// compression is used, revert the read byte
-			// and treat the next 2 bytes as 0b11(compression mask)offset
+			// compression used, revert the read byte
+			// and treat the next 2 bytes as 0b11(compression mask)+offset
 			// and start reading from offset
 			buf.UnreadByte()
-			var index uint16
-			binary.Read(buf, binary.BigEndian, &index)
-			index &= 0b0011_1111_1111_1111
+			var offset uint16
+			binary.Read(buf, binary.BigEndian, &offset)
+			offset &= 0b0011_1111_1111_1111
 
 			if currPos == -1 {
 				currPos, _ = buf.Seek(0, io.SeekCurrent)
 			}
-			buf.Seek(int64(index), io.SeekStart)
+			buf.Seek(int64(offset), io.SeekStart)
 			continue
 		} 
 
-		if num == 0 {
-			break
-		}
 		labelBytes := make([]byte, num)
 		buf.Read(labelBytes)
 		labels = append(labels, string(labelBytes))
@@ -98,10 +99,10 @@ func ParseDNSRecord(buf *bytes.Reader) DNSRecord {
 	case NS_TYPE, CNAME_TYPE:
 		record.RData = ParseDomainName(buf)
 	case MX_TYPE:
-		// ignore preference 
-		buf.ReadByte() 
-		buf.ReadByte()
-		record.RData = ParseDomainName(buf)
+		var preference uint16
+		binary.Read(buf, binary.BigEndian, &preference)
+		record.RData = strconv.Itoa(int(preference)) + " "
+		record.RData += ParseDomainName(buf)
 	case A_TYPE:
 		var RData [4]byte
 		binary.Read(buf, binary.BigEndian, &RData)
@@ -114,6 +115,7 @@ func ParseDNSRecord(buf *bytes.Reader) DNSRecord {
 	case TXT_TYPE:
 		record.RData = ParseTXTRdata(buf, record.RDLength)
 	default:
+		// move buf cursor and ignore the data
 		buf.Read(make([]byte, record.RDLength))
 	}
 

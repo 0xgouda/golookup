@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	"bytes"
@@ -6,11 +6,13 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/0xgouda/golookup/query"
 )
 
 type DNSResponse struct {
-	Header 			  DNSHeader
-	Questions         []DNSQuestion
+	Header 			  query.DNSHeader
+	Questions         []query.DNSQuestion
 	Answers           []DNSRecord
 	NameServers       []DNSRecord
 	AdditionalRecords []DNSRecord
@@ -18,15 +20,15 @@ type DNSResponse struct {
 
 type DNSRecord struct {
 	DomainName   string
-	Type_        RecordType
-	Class        QueryClass
+	Type_        query.RecordType
+	Class        query.QueryClass
 	TTL          uint32
 	RDLength     uint16
 	RData        string
 }
 
-func ParseDNSHeader(buf *bytes.Reader) DNSHeader {
-	header := DNSHeader{}
+func ParseDNSHeader(buf *bytes.Reader) query.DNSHeader {
+	header := query.DNSHeader{}
 	binary.Read(buf, binary.BigEndian, &header)
 	return header
 }
@@ -96,14 +98,14 @@ func ParseDNSRecord(buf *bytes.Reader) DNSRecord {
 	binary.Read(buf, binary.BigEndian, &record.RDLength)
 
 	switch record.Type_ {
-	case NS_TYPE, CNAME_TYPE:
+	case query.NS_TYPE, query.CNAME_TYPE:
 		record.RData = ParseDomainName(buf)
-	case MX_TYPE:
+	case query.MX_TYPE:
 		var preference uint16
 		binary.Read(buf, binary.BigEndian, &preference)
 		record.RData = strconv.Itoa(int(preference)) + " "
 		record.RData += ParseDomainName(buf)
-	case A_TYPE:
+	case query.A_TYPE:
 		var RData [4]byte
 		binary.Read(buf, binary.BigEndian, &RData)
 
@@ -112,7 +114,7 @@ func ParseDNSRecord(buf *bytes.Reader) DNSRecord {
 			octets[i] = strconv.Itoa(int(num))
 		}
 		record.RData = strings.Join(octets[:], ".")
-	case TXT_TYPE:
+	case query.TXT_TYPE:
 		record.RData = ParseTXTRdata(buf, record.RDLength)
 	default:
 		// move buf cursor and ignore the data
@@ -122,8 +124,8 @@ func ParseDNSRecord(buf *bytes.Reader) DNSRecord {
 	return record
 }
 
-func ParseDNSQuestion(buf *bytes.Reader) DNSQuestion {
-	question := DNSQuestion{
+func ParseDNSQuestion(buf *bytes.Reader) query.DNSQuestion {
+	question := query.DNSQuestion{
 		Qname: ParseDomainName(buf),
 	}
 	binary.Read(buf, binary.BigEndian, &question.Qtype)
@@ -138,7 +140,7 @@ func ParseDNSResponse(buf []byte) *DNSResponse {
 	header := ParseDNSHeader(bytesBuf)
 	response := &DNSResponse{
 		Header: header,
-		Questions: make([]DNSQuestion, 0, header.QDcount),
+		Questions: make([]query.DNSQuestion, 0, header.QDcount),
 		Answers: make([]DNSRecord, 0, header.ANcount),
 		NameServers: make([]DNSRecord, 0, header.NScount),
 		AdditionalRecords: make([]DNSRecord, 0, header.ARcount),

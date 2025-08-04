@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/0xgouda/golookup/conn"
+	"github.com/0xgouda/golookup/query"
 )
 
 func main() {
@@ -13,33 +16,33 @@ func main() {
 		return 
 	}
 
-	var qtype RecordType
+	var qtype query.RecordType
 	var resultName string
 	switch strings.ToUpper(args[1]) {
 	case "A":
-		qtype = A_TYPE
+		qtype = query.A_TYPE
 		resultName = "IP"
 	case "NS":
-		qtype = NS_TYPE
+		qtype = query.NS_TYPE
 		resultName = "Name Server"
 	case "CNAME":
-		qtype = CNAME_TYPE
+		qtype = query.CNAME_TYPE
 		resultName = "CNAME"
 	case "MX":
-		qtype = MX_TYPE
+		qtype = query.MX_TYPE
 		resultName = "Mail Server"
 	case "TXT":
-		qtype = TXT_TYPE
+		qtype = query.TXT_TYPE
 		resultName = "Text"
 	default:
 		fmt.Println("unsupported record type", os.Args[2])
 		return
 	}
 
-	fmt.Println("Fixed Root Server IP:", A_ROOT_SERVER)
+	fmt.Println("Fixed Root Server IP:", conn.A_ROOT_SERVER)
 	fmt.Println()
 
-	resp, err := Resolve(args[0], qtype)
+	resp, err := conn.Resolve(args[0], qtype)
 	if err != nil {
 		fmt.Println(err)
 		return

@@ -1,4 +1,4 @@
-package main
+package conn
 
 import (
 	"errors"
@@ -6,6 +6,9 @@ import (
 	"net"
 	"os"
 	"time"
+
+	"github.com/0xgouda/golookup/parser"
+	"github.com/0xgouda/golookup/query"
 )
 
 // Fixed Root DNS Servers addresses
@@ -14,8 +17,8 @@ const (
 	A_ROOT_SERVER = "198.41.0.4"
 )
 
-func Resolve(domain string, qtype RecordType) (*DNSResponse, error) {
-	queryPacket := GenerateDNSQuery(domain, qtype)
+func Resolve(domain string, qtype query.RecordType) (*parser.DNSResponse, error) {
+	queryPacket := query.GenerateDNSQuery(domain, qtype)
 	serverToQuery := A_ROOT_SERVER
 
 	for {
@@ -25,7 +28,7 @@ func Resolve(domain string, qtype RecordType) (*DNSResponse, error) {
 			return nil, err
 		}
 
-		resp := ParseDNSResponse(buf)
+		resp := parser.ParseDNSResponse(buf)
 		if resp.Header.ANcount > 0 {
 			// answer found, return.
 			return resp, nil
@@ -48,7 +51,7 @@ func Resolve(domain string, qtype RecordType) (*DNSResponse, error) {
 			fmt.Println("name server IP not in packet")
 			fmt.Println("starting new query for:", ns)
 
-			nsResp, err := Resolve(ns, A_TYPE)
+			nsResp, err := Resolve(ns, query.A_TYPE)
 			if err != nil {
 				return nil, err
 			}
@@ -90,9 +93,9 @@ func SendDNSQuery(queryPacket []byte, serverAddr string) ([]byte, error) {
 	return buf, nil
 }
 
-func GetNameServerToQuery(resp *DNSResponse) (string, string) {
+func GetNameServerToQuery(resp *parser.DNSResponse) (string, string) {
 	for _, ar := range resp.AdditionalRecords {
-		if ar.Type_ == A_TYPE {
+		if ar.Type_ == query.A_TYPE {
 			return ar.DomainName, ar.RData
 		}
 	}

@@ -27,6 +27,7 @@ func Resolve(domain string, qtype RecordType) (*DNSResponse, error) {
 
 		resp := ParseDNSResponse(buf)
 		if resp.Header.ANcount > 0 {
+			// answer found, return.
 			return resp, nil
 		}
 
@@ -44,14 +45,15 @@ func Resolve(domain string, qtype RecordType) (*DNSResponse, error) {
 		
 		if nsIp == "" {
 			fmt.Println()
-			fmt.Println("IP not in packet, starting new query for:", ns)
+			fmt.Println("name server IP not in packet")
+			fmt.Println("starting new query for:", ns)
 
 			nsResp, err := Resolve(ns, A_TYPE)
 			if err != nil {
 				return nil, err
 			}
 			nsIp = nsResp.Answers[0].RData
-			fmt.Println("new query done")
+			fmt.Println("new query done, found name server IP")
 			fmt.Println()
 		}
 		

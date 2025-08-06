@@ -1,9 +1,10 @@
 # GoLookup
 
-A DNS query generator and response parser that
-follows [RFC 1035](https://datatracker.ietf.org/doc/html/rfc1035).  
+A simple, dig-like DNS client in Go.
 
-It performs recursive queries through the DNS server hierarchy, handles byte-level encoding, and supports domain name compression.
+Implements a DNS query generator and response parser in compliance with [RFC 1035](https://datatracker.ietf.org/doc/html/rfc1035).
+
+Performs recursive queries through the DNS servers hierarchy, handles byte-level encoding, and domain name compression.
 
 Currently supports `A`, `MX`, `CNAME`, `TXT`, and `NS` record types, 
 and logs each step of the recursive resolution process.

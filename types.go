@@ -1,4 +1,4 @@
-package query
+package main
 
 import (
 	"bytes"
@@ -31,7 +31,7 @@ type DNSHeader struct {
 	ARcount uint16
 }
 
-func (h *DNSHeader) to_bytes() []byte {
+func (h *DNSHeader) ToBytes() []byte {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, h)
 	return buf.Bytes()
@@ -43,10 +43,10 @@ type DNSQuestion struct {
 	Qclass QueryClass
 }
 
-func (q *DNSQuestion) to_bytes() []byte {
+func (q *DNSQuestion) ToBytes() []byte {
 	buf := new(bytes.Buffer)
-	var label string
 
+	var label string
 	domain := q.Qname
 	for domain != "" {
 		label, domain, _ = strings.Cut(domain, ".")
@@ -62,8 +62,38 @@ func (q *DNSQuestion) to_bytes() []byte {
 	return buf.Bytes()
 }
 
+type DNSQuery struct {
+	Header   DNSHeader
+	Questions []DNSQuestion
+}
+
+func (query DNSQuery) ToBytes() []byte {
+	buf := query.Header.ToBytes()
+	for _, question := range query.Questions {
+		buf = append(buf, question.ToBytes()...)
+	}
+	return buf
+}
+
+type DNSResponse struct {
+	Header 			  DNSHeader
+	Questions         []DNSQuestion
+	Answers           []DNSRecord
+	NameServers       []DNSRecord
+	AdditionalRecords []DNSRecord
+}
+
+type DNSRecord struct {
+	DomainName   string
+	Type         RecordType
+	Class        QueryClass
+	TTL          uint32
+	RDLength     uint16
+	RData        string
+}
+
 var incrementalId uint16 = 0
-func GenerateDNSQuery(domain string, qtype RecordType) []byte {
+func GenerateDNSQuery(domain string, qtype RecordType) DNSQuery {
 	header := DNSHeader{
 		Id: incrementalId,
 		QDcount: 1,
@@ -76,6 +106,8 @@ func GenerateDNSQuery(domain string, qtype RecordType) []byte {
 		Qclass: Internet,
 	}
 
-	buf := header.to_bytes()
-	return append(buf, question.to_bytes()...)
+	return DNSQuery{
+		Header: header,
+		Questions: []DNSQuestion{question},
+	}
 }

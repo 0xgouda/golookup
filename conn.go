@@ -46,7 +46,7 @@ func Resolve(query DNSQuery) (*DNSResponse, error) {
 			fmt.Println("name server IP not in packet")
 			fmt.Println("starting new query for:", ns)
 
-			newQuery := GenerateDNSQuery(ns, query.Questions[0].Qtype)
+			newQuery := GenerateDNSQuery(ns, A_TYPE)
 			nsResp, err := Resolve(newQuery)
 			if err != nil {
 				return nil, err

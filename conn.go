@@ -1,4 +1,4 @@
-package conn
+package main
 
 import (
 	"errors"
@@ -6,9 +6,6 @@ import (
 	"net"
 	"os"
 	"time"
-
-	"github.com/0xgouda/golookup/parser"
-	"github.com/0xgouda/golookup/query"
 )
 
 // Fixed Root DNS Servers addresses
@@ -17,18 +14,16 @@ const (
 	A_ROOT_SERVER = "198.41.0.4"
 )
 
-func Resolve(domain string, qtype query.RecordType) (*parser.DNSResponse, error) {
-	queryPacket := query.GenerateDNSQuery(domain, qtype)
+func Resolve(query DNSQuery) (*DNSResponse, error) {
 	serverToQuery := A_ROOT_SERVER
-
 	for {
 		fmt.Println("Querying:", serverToQuery)
-		buf, err := SendDNSQuery(queryPacket, serverToQuery)
+		buf, err := SendDNSQuery(query, serverToQuery)
 		if err != nil {
 			return nil, err
 		}
 
-		resp := parser.ParseDNSResponse(buf)
+		resp := ParseDNSResponse(buf)
 		if resp.Header.ANcount > 0 {
 			// answer found, return.
 			return resp, nil
@@ -40,9 +35,9 @@ func Resolve(domain string, qtype query.RecordType) (*parser.DNSResponse, error)
 		}
 
 		if serverToQuery == A_ROOT_SERVER {
-			fmt.Printf("Received TLD Server Address for \"%s\": \"%s\"", domain, ns)
+			fmt.Printf("Received TLD Server Address for \"%s\": \"%s\"", query.Questions[0].Qname, ns)
 		} else {
-			fmt.Printf("Received Authoritative Server Address for \"%s\": \"%s\"", domain, ns)
+			fmt.Printf("Received Authoritative Server Address for \"%s\": \"%s\"", query.Questions[0].Qname, ns)
 		}
 		fmt.Println()
 		
@@ -51,7 +46,8 @@ func Resolve(domain string, qtype query.RecordType) (*parser.DNSResponse, error)
 			fmt.Println("name server IP not in packet")
 			fmt.Println("starting new query for:", ns)
 
-			nsResp, err := Resolve(ns, query.A_TYPE)
+			newQuery := GenerateDNSQuery(ns, A_TYPE)
+			nsResp, err := Resolve(newQuery)
 			if err != nil {
 				return nil, err
 			}
@@ -66,7 +62,7 @@ func Resolve(domain string, qtype query.RecordType) (*parser.DNSResponse, error)
 	}
 }
 
-func SendDNSQuery(queryPacket []byte, serverAddr string) ([]byte, error) {
+func SendDNSQuery(query DNSQuery, serverAddr string) ([]byte, error) {
 	socket, _ := net.Dial("udp", serverAddr + ":53")
 	defer socket.Close()
 
@@ -74,7 +70,7 @@ func SendDNSQuery(queryPacket []byte, serverAddr string) ([]byte, error) {
 	var err error
 	for range 5 {
 		socket.SetDeadline(time.Now().Add(5 * time.Second))
-		_, err = socket.Write(queryPacket)
+		_, err = socket.Write(query.ToBytes())
 		if err == nil {
 			_, err = socket.Read(buf)
 			if err == nil {
@@ -93,9 +89,9 @@ func SendDNSQuery(queryPacket []byte, serverAddr string) ([]byte, error) {
 	return buf, nil
 }
 
-func GetNameServerToQuery(resp *parser.DNSResponse) (string, string) {
+func GetNameServerToQuery(resp *DNSResponse) (string, string) {
 	for _, ar := range resp.AdditionalRecords {
-		if ar.Type_ == query.A_TYPE {
+		if ar.Type == A_TYPE {
 			return ar.DomainName, ar.RData
 		}
 	}

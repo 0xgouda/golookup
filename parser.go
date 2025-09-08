@@ -66,11 +66,9 @@ func ParseDNSQuestion(buf *bytes.Reader) DNSQuestion {
 
 func ParseDNSQuery(buf []byte) DNSQuery {
 	readerBuf := bytes.NewReader(buf)
-	query := DNSQuery{
-		Questions: make([]DNSQuestion, 0, 1),
-	}
+	query := DNSQuery{}
 	query.Header = ParseDNSHeader(readerBuf)
-	query.Questions[0] = ParseDNSQuestion(readerBuf)
+	query.Questions = append(query.Questions, ParseDNSQuestion(readerBuf))
 	return query
 }
 

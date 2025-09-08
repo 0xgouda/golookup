@@ -63,7 +63,7 @@ func (q *DNSQuestion) ToBytes() []byte {
 }
 
 type DNSQuery struct {
-	Header   DNSHeader
+	Header    DNSHeader
 	Questions []DNSQuestion
 }
 
@@ -76,7 +76,7 @@ func (query DNSQuery) ToBytes() []byte {
 }
 
 type DNSResponse struct {
-	Header 			  DNSHeader
+	Header 		  DNSHeader
 	Questions         []DNSQuestion
 	Answers           []DNSRecord
 	NameServers       []DNSRecord

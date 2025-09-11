@@ -1,4 +1,4 @@
-package main
+package dns
 
 import (
 	"fmt"
@@ -91,7 +91,7 @@ func GetNameServer(resp DNSPacket) (string, string) {
 }
 
 // Starts a DNS server listening at the given port
-func serveDNS(port int) error {
+func ServeDNS(port int) error {
 	addr := net.UDPAddr{
         Port: port,
         IP:   net.ParseIP("0.0.0.0"),

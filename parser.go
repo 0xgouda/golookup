@@ -14,6 +14,8 @@ func ParseDNSHeader(buf *bytes.Reader) DNSHeader {
 	return header
 }
 
+// Parses DNS domain name from the given reader,
+// handling compression if present.
 func ParseDomainName(buf *bytes.Reader) string {
 	var labels []string
 	var compressionMask uint8 = 0b1100_0000
@@ -64,14 +66,6 @@ func ParseDNSQuestion(buf *bytes.Reader) DNSQuestion {
 	return question
 }
 
-func ParseDNSQuery(buf []byte) DNSQuery {
-	readerBuf := bytes.NewReader(buf)
-	query := DNSQuery{}
-	query.Header = ParseDNSHeader(readerBuf)
-	query.Questions = append(query.Questions, ParseDNSQuestion(readerBuf))
-	return query
-}
-
 func ParseTXTRdata(buf *bytes.Reader, RDLength uint16) string {
 	var strs []string
 	var readLen uint16
@@ -116,7 +110,7 @@ func ParseDNSRecord(buf *bytes.Reader) DNSRecord {
 	case TXT_TYPE:
 		record.RData = ParseTXTRdata(buf, record.RDLength)
 	default:
-		// move buf cursor and ignore the data
+		// move buf cursor and ignore the data of unsupported types
 		buf.Read(make([]byte, record.RDLength))
 	}
 
@@ -124,11 +118,11 @@ func ParseDNSRecord(buf *bytes.Reader) DNSRecord {
 }
 
 
-func ParseDNSResponse(buf []byte) *DNSResponse {
+func ParseDNSPacket(buf []byte) DNSPacket {
 	bytesBuf := bytes.NewReader(buf)
 
 	header := ParseDNSHeader(bytesBuf)
-	response := &DNSResponse{
+	response := DNSPacket{
 		Header: header,
 		Questions: make([]DNSQuestion, 0, header.QDcount),
 		Answers: make([]DNSRecord, 0, header.ANcount),

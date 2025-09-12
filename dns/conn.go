@@ -41,7 +41,7 @@ func Resolve(query DNSPacket) (DNSPacket, error) {
 				return DNSPacket{}, err
 			}
 			nsIp = nsResp.Answers[0].RData
-			fmt.Printf("new query done, found \"%s\" IP: \"%s\"", ns, nsIp)
+			fmt.Printf("new query done, found \"%s\" IP: \"%s\"\n", ns, nsIp)
 		}
 		serverToQuery = nsIp
 	}

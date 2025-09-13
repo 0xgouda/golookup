@@ -23,7 +23,7 @@ graph TD
     K -->|Yes| V[Display Result to CLI]
     V -->|Server Mode| W[Send Response to Client]
 
-    K -->|No| L[Extract TLD/Authortative Name Server domain]
+    K -->|No| L[Extract TLD/Authortative <br>Name Server domain]
     L --> M{Its IP Found?}
     M -->|Yes| I
     M -->|No| E
@@ -48,6 +48,7 @@ usage:
 $ go run ./cmd serve --port=9999 &
 [1] 25685
 $ dig @127.0.0.1 -p 9999 example.com NS
+
 Querying: 198.41.0.4
 Received Name Server for "com": "l.gtld-servers.net"
 Received "l.gtld-servers.net" IP: "192.41.162.30"
